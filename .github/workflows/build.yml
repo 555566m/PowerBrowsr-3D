@@ -14,17 +14,37 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Locate Project Root & Verify Files
+        id: locate
+        run: |
+          echo "=== Repository Tree ==="
+          find . -maxdepth 4 -not -path '*/.*'
+
+          BUILD_FILE=$(find . -name "settings.gradle" -o -name "settings.gradle.kts" | head -n 1)
+          if [ -z "$BUILD_FILE" ]; then
+            BUILD_FILE=$(find . -maxdepth 3 -name "build.gradle" -o -name "build.gradle.kts" | sort | head -n 1)
+          fi
+
+          if [ -z "$BUILD_FILE" ]; then
+            echo "ERROR: No Gradle project files found! Upload the extracted project files (build.gradle, settings.gradle, app/) to your GitHub repo."
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$BUILD_FILE")
+          echo "Detected project directory: $PROJECT_DIR"
+          echo "project_dir=$PROJECT_DIR" >> $GITHUB_OUTPUT
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: 'gradle'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
       - name: Generate Gradle 8.5 Wrapper
+        working-directory: ${{ steps.locate.outputs.project_dir }}
         run: |
           wget -q https://services.gradle.org/distributions/gradle-8.5-bin.zip -O /tmp/gradle.zip
           unzip -q /tmp/gradle.zip -d /tmp/
@@ -32,11 +52,18 @@ jobs:
           chmod +x gradlew
 
       - name: Build Debug APK
+        working-directory: ${{ steps.locate.outputs.project_dir }}
         run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Collect APK
+        run: |
+          mkdir -p apk_output
+          APK_PATH=$(find . -path "*/build/outputs/apk/debug/*.apk" | head -n 1)
+          cp "$APK_PATH" apk_output/PowerBrowser-v1.0-3D-Edition.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: PowerBrowser-3D-Edition-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: apk_output/PowerBrowser-v1.0-3D-Edition.apk
           retention-days: 30
