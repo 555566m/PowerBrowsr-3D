@@ -87,6 +87,6 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PowerBrowser-3D-Edition-APK
+          name: PowerBrowser-Android17-Material-APK
           path: ${{ steps.setup_proj.outputs.proj_dir }}/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
